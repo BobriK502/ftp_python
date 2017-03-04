@@ -9,8 +9,8 @@ import os,socket,threading,time
 
 allow_delete = False
 local_ip = socket.gethostbyname(socket.gethostname())
-local_port = 3681
-currdir=os.path.abspath('b:/code/FTP_server')
+local_port = 3005
+currdir=os.path.abspath('.')
 
 
 
@@ -187,7 +187,7 @@ class FTPserverThread(threading.Thread):
 
 
 
-    def ABORT(self,cmd):
+
 
 
     def LIST(self,cmd):
