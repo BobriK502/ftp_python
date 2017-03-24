@@ -4,12 +4,13 @@
 
 
 
-import os,socket,threading,time
+import os,socket,threading,time,logging
 
 
-allow_delete = False
+allow_delete = True
 local_ip = socket.gethostbyname(socket.gethostname())
-local_port = 3005
+logging.basicConfig(level = logging.INFO , filename = 'info.log' , format = 'Date : %(asctime)s ---- Message: %(message)s  ---- Line: %(lineno)d ---- Module : %(module)s ---- Process : %(process)d ')
+local_port = 21
 currdir=os.path.abspath('.')
 
 
@@ -40,7 +41,7 @@ class FTPserverThread(threading.Thread):
 
             else:
 
-                print 'Recieved:',cmd
+                logging.info(cmd)
 
                 try:
 
@@ -49,8 +50,8 @@ class FTPserverThread(threading.Thread):
 
                 except Exception,e:
 
-                    print 'ERROR:',e
-                    self.conn.send('500 Sorry.\r\n')
+                    print e
+                    self.conn.send('500 Server is not resonsing.\r\n')
 
 
 
@@ -148,14 +149,14 @@ class FTPserverThread(threading.Thread):
 
 
 
-    def PASV(self,cmd): # from http://goo.gl/3if2U
+    def PASV(self,cmd): 
 
         self.pasv_mode = True
         self.servsock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         self.servsock.bind((local_ip,0))
         self.servsock.listen(1)
         ip, port = self.servsock.getsockname()
-        print 'open', ip, port
+        logging.info("open "+str(ip)+":"+str(port))
         self.conn.send('227 Entering Passive Mode (%s,%u,%u).\r\n' %
 
                 (','.join(ip.split('.')), port>>8&0xFF, port&0xFF))
@@ -224,11 +225,14 @@ class FTPserverThread(threading.Thread):
 
 
     def MKD(self,cmd):
+        try:
+            dn=os.path.join(self.cwd,cmd[4:-2])
+            os.mkdir(dn)
+            self.conn.send('257 Directory created.\r\n')
+        except Exception,e:
 
-        dn=os.path.join(self.cwd,cmd[4:-2])
-        os.mkdir(dn)
-        self.conn.send('257 Directory created.\r\n')
-
+                    logging.info(e)
+                    self.conn.send("Can't create directory.\r\n")
 
 
     def RMD(self,cmd):
@@ -236,12 +240,15 @@ class FTPserverThread(threading.Thread):
         dn=os.path.join(self.cwd,cmd[4:-2])
 
         if allow_delete:
-
-            os.rmdir(dn)
-            self.conn.send('250 Directory deleted.\r\n')
+             try:   
+                os.rmdir(dn)
+                self.conn.send('250 Directory deleted.\r\n')
+             except Exception,e:
+                    logging.info(e)
+                    self.conn.send('450 Deliting directory is not allowed.Permission denied.\r\n')
 
         else:
-
+            logging.info("RMDIR Permission denied")
             self.conn.send('450 Not allowed.\r\n')
 
 
@@ -251,9 +258,12 @@ class FTPserverThread(threading.Thread):
         fn=os.path.join(self.cwd,cmd[5:-2])
 
         if allow_delete:
-
-            os.remove(fn)
-            self.conn.send('250 File deleted.\r\n')
+            try:
+                os.remove(fn)
+                self.conn.send('250 File deleted.\r\n')
+            except Exception,e:
+                    logging.info(e)
+                    self.conn.send('450 Deliting file is not allowed.Permission denied.\r\n')
 
         else:
 
@@ -270,10 +280,13 @@ class FTPserverThread(threading.Thread):
 
     def RNTO(self,cmd):
 
-        fn=os.path.join(self.cwd,cmd[5:-2])
-        os.rename(self.rnfn,fn)
-        self.conn.send('250 File renamed.\r\n')
-
+        try:
+            fn=os.path.join(self.cwd,cmd[5:-2])
+            os.rename(self.rnfn,fn)
+            self.conn.send('250 File renamed.\r\n')
+        except Exception,e:
+            logging.info(e)
+            self.conn.send('450 Not allowed.\r\n')
 
 
     def REST(self,cmd):
@@ -287,7 +300,7 @@ class FTPserverThread(threading.Thread):
     def RETR(self,cmd):
 
         fn=os.path.join(self.cwd,cmd[5:-2])
-        print 'Downlowding:',fn
+        logging.info(fn)
 
         if self.mode=='I':
 
@@ -321,7 +334,7 @@ class FTPserverThread(threading.Thread):
     def STOR(self,cmd):
 
         fn=os.path.join(self.cwd,cmd[5:-2])
-        print 'Uplaoding:',fn
+        logging.info(fn)
 
         if self.mode=='I':
 
